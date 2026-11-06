@@ -1,0 +1,48 @@
+SPACE EXPLORER AR – UPDATED PROJECT
+සිංහලෙන් ක්‍රියාත්මක කරන ආකාරය
+
+COMPUTER එකේ run කිරීම:
+1. ZIP එක Extract කරන්න.
+2. `Space_Explorer_AR_Fixed` folder එක VS Code වලින් Open Folder කරන්න.
+3. Live Server extension එක install කරන්න.
+4. `index.html` මත Right click → Open with Live Server කරන්න.
+5. Camera permission Allow කරන්න.
+
+PHONE එකේ camera open නොවීමට ප්‍රධාන හේතුව:
+- Computer එකේ `localhost` කියන්නේ computer එකට පමණයි.
+- Phone එකෙන් `http://192.168.x.x:5500` open කළාම ඒක සාමාන්‍ය HTTP address එකක්. Browser එක camera access block කරනවා.
+- Permission Allow කළත් HTTPS නැත්නම් camera open නොවිය හැකියි.
+
+PHONE එකෙන් නිවැරදිව run කිරීම:
+1. https://app.netlify.com/drop වෙත යන්න.
+2. සම්පූර්ණ `Space_Explorer_AR_Fixed` folder එක drag & drop කරන්න.
+3. Netlify ලබාදෙන HTTPS link එක phone browser එකෙන් open කරන්න.
+4. Camera permission Allow කරන්න.
+5. Hiro marker එක සම්පූර්ණයෙන් camera එකට පෙන්වන්න.
+
+වැදගත්:
+- `index.html` සහ `models` folder එක එකටම තබන්න.
+- HTML file එක විතරක් upload කරන්න එපා.
+- `models/astronaut.glb` delete/rename කරන්න එපා.
+- Phone එකෙන් `file://` හෝ `http://192.168...` භාවිතා කරන්න එපා.
+
+Assignment features:
+- Hiro marker scene සහ objects 4කට වැඩි ප්‍රමාණයක්
+- Box, sphere, torus, plane වැනි primitives
+- `a-text` labels
+- Rotation සහ position animations
+- Astronaut GLB model එක Draco decoder සමඟ load කිරීම
+- Pink planet tap කළාම colours 5ක් අතර වෙනස් වීම
+- Saturn tap කළාම grow/shrink වීම
+- Marker found/lost status banner
+- Camera error එකක් වුණොත් status banner එකෙන් උපදෙස් පෙන්වීම
+
+Submission එකට තවම ඔබගේ account/device එකෙන් කළ යුතු දේ:
+1. Public GitHub repository එකක් හදලා project එකේ සියලු files upload කරන්න.
+2. Netlify හෝ GitHub Pages හරහා HTTPS deploy කරන්න.
+3. සැබෑ phone එකෙන් test කරන්න.
+4. Actual GitHub URL සහ Group Number Word document එකට දාන්න.
+5. Group number එක අනුව Word document එක rename කරන්න.
+
+Model credit:
+පැරණි README එකේ NASA 3D Resources credit එක සඳහන්. නමුත් GLB file එකේ embedded licence metadata නැති නිසා exact model page සහ licence එක submit කිරීමට පෙර තහවුරු කළ යුතුයි.

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080d25">
+  <title>Space Explorer | Marker AR</title>
+
+  <!-- Load A-Frame first; AR.js depends on it. -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <!-- Match A-Frame 1.3.0's Three.js revision (r137) and add Draco support for the supplied GLB. -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.137.5/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.137.5/examples/js/loaders/DRACOLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+
+  <script>
+    // Change the colour of the red ball whenever it is tapped/clicked.
+    AFRAME.registerComponent('color-changer', {
+      init: function () {
+        const colors = ['#EF476F', '#FFD166', '#06D6A0', '#4CC9F0', '#B388FF'];
+        let index = 0;
+        this.el.addEventListener('click', () => {
+          index = (index + 1) % colors.length;
+          this.el.setAttribute('material', 'color', colors[index]);
+        });
+      }
+    });
+
+    // Assignment requirement: a new interaction (grow / shrink on tap).
+    AFRAME.registerComponent('grow-object', {
+      init: function () {
+        let grown = false;
+        this.el.addEventListener('click', () => {
+          grown = !grown;
+          const scale = grown ? '1.55 1.55 1.55' : '1 1 1';
+          this.el.setAttribute('animation__tap', {
+            property: 'scale', to: scale, dur: 220, easing: 'easeOutBack'
+          });
+        });
+      }
+    });
+
+    // Update the on-screen status when AR.js finds or loses the Hiro marker.
+    AFRAME.registerComponent('marker-status', {
+      init: function () {
+        const banner = document.querySelector('#status');
+        this.el.addEventListener('markerFound', () => {
+          banner.textContent = 'MARKER FOUND • TAP THE PINK PLANET OR SATURN';
+          banner.classList.add('found');
+        });
+        this.el.addEventListener('markerLost', () => {
+          banner.textContent = 'SEARCHING FOR HIRO MARKER…';
+          banner.classList.remove('found');
+        });
+      }
+    });
+
+    // Load the supplied Draco-compressed GLB with an explicit decoder.
+    // The standard A-Frame gltf-model component does not reliably configure
+    // a Draco decoder across browsers, so this component owns the load.
+    AFRAME.registerComponent('load-draco-model', {
+      schema: { src: { type: 'string', default: './models/astronaut.glb' } },
+      init: function () {
+        const loader = new THREE.GLTFLoader();
+        const draco = new THREE.DRACOLoader();
+        draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+        loader.setDRACOLoader(draco);
+        loader.load(
+          this.data.src,
+          (gltf) => {
+            this.el.setObject3D('mesh', gltf.scene);
+            this.el.emit('model-loaded', { format: 'gltf', model: gltf });
+          },
+          undefined,
+          (error) => {
+            console.error('Astronaut GLB failed to load:', error);
+            this.el.emit('model-error', { src: this.data.src, error: error });
+          }
+        );
+      },
+      remove: function () {
+        const object = this.el.getObject3D('mesh');
+        if (object) this.el.removeObject3D('mesh');
+      }
+    });
+
+    // A useful error message if the local GLB cannot be loaded.
+    AFRAME.registerComponent('model-feedback', {
+      init: function () {
+        const banner = document.querySelector('#model-status');
+        this.el.addEventListener('model-loaded', () => {
+          banner.textContent = 'Astronaut model loaded';
+          banner.classList.add('ok');
+        });
+        this.el.addEventListener('model-error', (event) => {
+          console.error('Astronaut GLB failed to load:', event.detail);
+          banner.textContent = 'Astronaut model failed to load — check models/astronaut.glb';
+          banner.classList.remove('ok');
+        });
+      }
+    });
+
+    // Explain camera startup failures instead of leaving a silent black view.
+    AFRAME.registerComponent('camera-feedback', {
+      init: function () {
+        const banner = document.querySelector('#status');
+        this.el.addEventListener('camera-init', () => {
+          banner.textContent = 'CAMERA READY • SHOW THE HIRO MARKER';
+        });
+        this.el.addEventListener('camera-error', (event) => {
+          console.error('AR camera error:', event.detail || event);
+          banner.textContent = 'CAMERA BLOCKED • USE HTTPS/LOCALHOST AND ALLOW CAMERA ACCESS';
+          banner.classList.remove('found');
+        });
+      }
+    });
+
+    // Normalise the imported model so its size/origin does not make it invisible.
+    AFRAME.registerComponent('fit-model', {
+      init: function () {
+        this.el.addEventListener('model-loaded', () => {
+          const object = this.el.getObject3D('mesh');
+          if (!object) return;
+          const box = new THREE.Box3().setFromObject(object);
+          const size = new THREE.Vector3();
+          const center = new THREE.Vector3();
+          box.getSize(size);
+          box.getCenter(center);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          if (!Number.isFinite(maxDim) || maxDim <= 0) {
+            console.warn('Astronaut model has no measurable geometry.');
+            return;
+          }
+          const factor = 0.85 / maxDim;
+          this.el.object3D.scale.setScalar(factor);
+          // Recalculate after scaling, then put the model centre over the marker.
+          this.el.object3D.position.set(-center.x * factor, -box.min.y * factor, -center.z * factor);
+        });
+      }
+    });
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #080d25; }
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    #status {
+      position: fixed; z-index: 20; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px;
+      padding: 11px 14px; border: 1px solid #ff7185; border-radius: 12px;
+      color: #fff; background: rgba(150, 25, 48, .92); text-align: center;
+      font-size: clamp(12px, 2.8vw, 15px); font-weight: 700; letter-spacing: .04em;
+      pointer-events: none;
+    }
+    #status.found { background: rgba(17, 117, 75, .94); border-color: #54e6a4; }
+    #help {
+      position: fixed; z-index: 20; bottom: max(12px, env(safe-area-inset-bottom)); left: 10px; right: 10px;
+      padding: 9px 12px; border-radius: 10px; background: rgba(5, 10, 30, .78);
+      color: #fff; text-align: center; font-size: 12px; line-height: 1.45; pointer-events: none;
+    }
+    #model-status { display: block; color: #ffd166; font-weight: 600; }
+    #model-status.ok { color: #8ff0bd; }
+    a-scene { position: fixed; inset: 0; }
+    .a-canvas { touch-action: none; }
+    #status { user-select: none; -webkit-user-select: none; }
+    video { object-fit: cover; }
+  </style>
+</head>
+
+<body>
+  <div id="status">SEARCHING FOR HIRO MARKER…</div>
+  <div id="help">
+    Show the complete Hiro marker to the camera. Tap the red planet to change its colour;
+    tap Saturn to grow/shrink it. <span id="model-status">Loading astronaut model…</span>
+  </div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; colorManagement: true"
+    arjs="sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720; trackingMethod: best;"
+    camera-feedback
+    loading-screen="enabled: false">
+
+    <a-marker preset="hiro" marker-status>
+      <!-- Flat display base. The other entities are siblings, not children of a-plane. -->
+      <a-plane position="0 0 0" rotation="-90 0 0" width="1.75" height="1.75"
+               material="color: #101a3b; metalness: 0.25; roughness: 0.8"></a-plane>
+
+      <!-- Four-plus scene objects using multiple A-Frame primitives. -->
+      <a-box position="-0.48 0.32 -0.42" width="0.38" height="0.64" depth="0.38"
+             material="color: #4cc9f0; metalness: 0.25"
+             animation="property: rotation; to: 0 360 0; dur: 6500; easing: linear; loop: true"></a-box>
+
+      <!-- Sun -->
+      <a-sphere position="0.43 0.48 -0.43" radius="0.22"
+                material="color: #ffd166; emissive: #7a4b00; emissiveIntensity: 0.25"></a-sphere>
+
+      <!-- Earth rotates -->
+      <a-sphere position="-0.48 0.22 0.43" radius="0.16" color="#2196f3"
+                animation="property: rotation; to: 0 360 0; dur: 5000; easing: linear; loop: true"></a-sphere>
+
+      <!-- Moon bounces vertically -->
+      <a-sphere position="0.05 0.28 0.48" radius="0.105" color="#e6e6e6"
+                animation="property: position; from: 0.05 0.22 0.48; to: 0.05 0.65 0.48; dir: alternate; dur: 1300; easing: easeInOutQuad; loop: true"></a-sphere>
+
+      <!-- Saturn: custom grow/shrink interaction. -->
+      <a-entity position="0.52 0.30 0.38" class="clickable" grow-object>
+        <a-sphere class="clickable" radius="0.17" color="#e6b566"></a-sphere>
+        <a-torus class="clickable" radius="0.25" radius-tubular="0.025" rotation="65 0 0" color="#f3d49b"></a-torus>
+      </a-entity>
+
+      <!-- Original astronaut GLB, fitted to a predictable size at runtime. -->
+      <a-entity position="0 0.02 0" animation="property: rotation; to: 0 360 0; dur: 10000; easing: linear; loop: true">
+        <a-entity load-draco-model="src: ./models/astronaut.glb" fit-model model-feedback></a-entity>
+      </a-entity>
+
+      <a-text value="SPACE EXPLORER" position="0 1.12 -0.05" align="center"
+              width="2.5" color="#ffffff" side="double"></a-text>
+      <a-text value="TAP TO EXPLORE" position="0 0.92 -0.05" align="center"
+              width="1.7" color="#a9c9ff" side="double"></a-text>
+
+      <!-- Workshop colour-changing ball. -->
+      <a-sphere class="clickable" color-changer position="0.05 0.20 -0.48"
+                radius="0.13" color="#ef476f"
+                animation="property: position; from: 0.05 0.16 -0.48; to: 0.05 0.42 -0.48;
+                           dir: alternate; dur: 850; easing: easeInOutQuad; loop: true"></a-sphere>
+    </a-marker>
+
+    <!-- Mouse and touch raycasting for tappable entities. -->
+    <a-entity camera cursor="rayOrigin: mouse; fuse: false" raycaster="objects: .clickable; far: 20"></a-entity>
+  </a-scene>
+</body>
+</html>
